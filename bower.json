@@ -1,0 +1,17 @@
+{
+  "name": "atm",
+  "description": "Simulated Automated Teller Machine",
+  "main": "index.html",
+  "authors": [
+    "Joshua Shone"
+  ],
+  "license": "ISC",
+  "moduleType": [],
+  "homepage": "",
+  "private": true,
+  "dependencies": {
+    "polymer": "~1.4.0",
+    "iron-pages": "~1.0.7",
+    "paper-spinner": "~1.1.1"
+  }
+}

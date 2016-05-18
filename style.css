@@ -1,0 +1,17 @@
+html, body {
+  margin:  0;
+  padding: 0;
+  width:  100%;
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+  color: #333;
+}
+
+body {
+  display: flex;
+}
+
+atm-main {
+  width:  100%;
+  height: 100%;
+}

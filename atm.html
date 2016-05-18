@@ -1,0 +1,696 @@
+<!--
+
+  atm-main
+  
+  Main ATM component, encapsulating both the virtual 'screen' and physical parts (card slot, cash..)
+  
+  Usage:
+  
+    <head>
+      ...
+      <link rel="import" href="atm.html">
+      ...
+    </head>
+    
+    <body>
+      ...
+      <atm-main></atm-main>
+      ...
+    </body>
+  
+  After the component is instantiated, it runs the user through a single transaction.
+
+-->
+
+<link rel="import" href="bower_components/polymer/polymer.html">
+<link rel="import" href="/bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="bower_components/paper-spinner/paper-spinner.html">
+<link rel="import" href="keypad.html">
+
+<dom-module id="atm-main">
+  <template>
+    <iron-pages id="pages" selected="0">
+    
+      <div id="landing-page">
+        <h1>Insert Card</h1>
+      </div>
+      
+      <div id="pin-page">
+        <h1 id="enterPin">Enter PIN<h2>
+        <h2 id="incorrectPin" class="hidden">Incorrect PIN, try again</h2>
+        <div class="pin-container">
+          <span id="pinDisplay">----</span>
+          <!-- TODO: Clear button should only appear when PIN is non-empty -->
+          <button class="clear-button" id="pinClear" on-tap="clearPin"></button>
+          <paper-spinner id="pinSpinner" active class="hidden"></paper-spinner>
+        </div>
+        <h2 id="verifyingPin" class="hidden">Verifying PIN..</h2>
+        <atm-keypad id="pinKeypad" on-key="onPinKey"></atm-keypad>
+      </div>
+      
+      <div id="amount-page">
+        <h1>How much?</h1>
+        
+        <div class="amount-container">
+          <span class="amount" id="entered-amount">€{{amount}}</span>
+          <!-- TODO: Clear button should only appear when amount is non-empty -->
+          <button class="clear-button" id="amountClear" on-tap="clearAmount"></button>
+        </div>
+        
+        <h2 id="invalidAmount" class="hidden">Invalid amount, please enter a different value.</h2>
+        
+        <div id="amountPresets">
+          <div class="preset-row">
+            <button class="amount-preset" value="20" on-tap="onPreset">€20</button>
+            <button class="amount-preset" value="50" on-tap="onPreset">€50</button>
+            <button class="amount-preset" value="60" on-tap="onPreset">€60</button>
+          </div>
+          <div class="preset-row">
+            <button class="amount-preset" value="100" on-tap="onPreset">€100</button>
+            <button class="amount-preset" value="150" on-tap="onPreset">€150</button>
+            <button class="amount-preset" value="200" on-tap="onPreset">€200</button>
+          </div>
+        </div>
+        
+        <atm-keypad class="hidden" id="amountKeypad" on-key="onAmountKey"></atm-keypad>
+        
+        <div class="input-selections">
+          <button class="input-selection-button hidden" id="presetsButton" on-tap="showPresets">
+            <div>
+              <img class="previous-icon" src="images/previous-icon.svg">
+              Preset..
+              <img class="preset-icon" src="images/presets-icon.svg">
+            </div>
+          </button>
+          <button class="input-selection-button" id="otherAmountButton" on-tap="showOtherAmount">
+            <div>
+              <img class="keypad-icon" src="images/keypad-icon.svg">
+              Other..
+              <img class="next-icon" src="images/next-icon.svg">
+            </div>
+          </button>
+        </div>
+        
+        <!-- TODO: Was originally going to use a slide-to-dispense mechanism, which allows for confirmation in a single step. Simple button used for now. -->
+        <button id="dispense" on-tap="onDispense">Dispense</button>
+      </div>
+      
+      <div id="dispensing-page">
+        <h1>Dispensing</h1>
+        
+        <div class="amount" id="dispensing-amount">€{{amount}}</div>
+        
+        <h2 id="takeCard">Take your card</h2>
+        
+        <paper-spinner id="dispensingSpinner" active class="hidden"></paper-spinner>
+        
+        <h2 id="takeCash" class="hidden">Take your cash</h2>
+      </div>
+      
+      <div id="end-page">
+        <h2>Thankyou!</h2>
+        <!-- TODO: Return to start. Could be implemented by re-instatiating the component, or given a solid functional style, the component could be reset. -->
+      </div>
+      
+    </iron-pages>
+    
+    <div id="physical">
+      <!-- TODO: Implement drag-drop. Polish and documentation took priority. -->
+      <div id="card-slot">
+        <div class="slot-insert"></div>
+      </div>
+      <div id="card-container">
+        <img id="creditCard" src="images/credit-card.svg">
+      </div>
+      
+      <!-- TODO: :hover effect for cash -->
+      <div id="money-slot">
+      </div>
+      <div id="money-container">
+        <div id="money"></div>
+      </div>
+    </div>
+    
+  </template>
+  
+  <style>
+    :host {
+      display: flex;
+    }
+    
+    :host h1,h2 {
+      margin: 0;
+    }
+    :host h1 {
+      font-size: 3em;
+    }
+    
+    :host #pages {
+      display: block;
+      position: relative;
+      height: 100%;
+      flex-grow: 1;
+    }
+    
+    :host #pages > div {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items:     center;
+    }
+    
+    :host .hidden {
+      display: none !important;
+    }
+    :host .faded {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    :host .clear-button {
+      display: inline-block;
+      width:  83px;
+      height: 42px;
+      background-image: url(images/clear-button.svg);
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    :host .clear-button:hover {
+      opacity: 0.7;
+    }
+    :host .clear-button:hover,
+    :host .clear-button:focus {
+      outline: none;
+    }
+    
+    
+    /* PIN page */
+    
+    :host .pin-container {
+      margin: 40px;
+      position: relative;
+    }
+
+    :host #pinDisplay {
+      border: 1px solid #309798;
+      border-radius: 4px;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 4em;
+      text-align: center;
+    }
+
+    :host #pinClear {
+      position: absolute;
+      right: -90px;
+      top: 50%;
+      margin-top: -21px;
+    }
+
+    :host #pinKeypad {
+      width:  400px;
+      height: 300px;
+    }
+    
+    :host #pinSpinner {
+      position: absolute;
+      right: -60px;
+      top: 50%;
+      margin-top: -22px;
+      width:  45px;
+      height: 45px;
+    }
+    
+    :host #verifyingPin {
+      height: 0;
+    }
+    
+    
+    /* Amount page */
+    
+    :host .amount-container {
+      margin: 30px;
+      display: flex;
+      align-items: center;
+    }
+
+    :host .amount {
+      font-size: 4em;
+    }
+
+    :host #amountPresets {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items:     stretch;
+      width:  500px;
+      height: 280px;
+      margin-bottom: 20px;
+    }
+
+    :host #amountPresets .preset-row {
+      flex-grow: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    :host .amount-preset {
+      background-color: transparent;
+      border: 2px solid #309798;
+      flex-grow: 1;
+      margin: 5px;
+      cursor: pointer;
+      font-size: 1.8em;
+    }
+
+    :host .amount-preset:hover {
+      background-color: #309798;
+      color: #fff;
+    }
+    :host .amount-preset:active {
+      background-color: #FFA700;
+      color: #fff;
+    }
+    :host .amount-preset:hover,
+    :host .amount-preset:focus {
+      outline: none;
+    }
+
+    :host #amountKeypad {
+      width:  400px;
+      height: 280px;
+      margin-bottom: 10px;
+    }
+
+    :host .input-selection-button {
+      background-color: #66cdcc;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 1.5em;
+      font-weight: bold;
+      height: 50px;
+      margin: 5px;
+    }
+    :host .input-selection-button > div {
+      display: flex;
+      justify-content: center;
+      align-items:     center;
+      flex-wrap: nowrap;
+      flex-direction: row;
+    }
+    :host .input-selection-button:hover {
+      background-color: #309798;
+    }
+    :host .input-selection-button:active {
+      background-color: #FFA700;
+    }
+    :host .input-selection-button:hover, 
+    :host .input-selection-button:focus {
+      outline: none;
+    }
+
+    :host #presetsButton .preset-icon {
+      display: inline-block;
+      width:  30px;
+      height: 30px;
+    }
+    :host #presetsButton .previous-icon {
+      display: inline-block;
+      width:  30px;
+      height: 30px;
+    }
+
+    :host #otherAmountButton .keypad-icon {
+      display: inline-block;
+      width:  30px;
+      height: 30px;
+    }
+    :host #otherAmountButton .next-icon {
+      display: inline-block;
+      width:  30px;
+      height: 30px;
+    }
+
+    :host #dispense {
+      width: 400px;
+      height: 45px;
+      background-color: #FFA700;
+      color: #fff;
+      font-weight: bold;
+      font-size: 1.3em;
+      border: none;
+      margin-top: 30px;
+      cursor: pointer;
+    }
+    :host #dispense:hover {
+      background-color: #FFCF75;
+    }
+    
+    
+    /* Dispensing page */
+    
+    :host #dispensing-amount {
+      margin: 30px;
+    }
+    
+    
+    /* Physical */
+  
+    :host #physical {
+      background-color: #464646;
+      position: relative;
+      width: 375px;
+    }
+
+    :host #money {
+      position: absolute;
+      bottom: 15px;
+      cursor: pointer;
+    }
+
+    :host #physical .euro-note {
+      display: block;
+      width: 300px;
+      margin-top: -190px;
+      margin-left: 38px;
+      box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.4);
+    }
+
+    :host #card-slot {
+      display: block;
+      height: 20px;
+      margin-top: 30px;
+      margin-left:  40px;
+      margin-right: 40px;
+      border: 3px solid yellow;
+      border-radius: 10px;
+    }
+
+    :host .slot-insert {
+      display: block;
+      background-color: #000;
+      width: 90%;
+      height: 4px;
+      margin: 0 auto;
+      margin-top: 8px;
+    }
+
+    :host #card-container {
+      overflow: hidden;
+      position: absolute;
+      top: 43px;
+      left:   0;
+      right:  0;
+      bottom: 0;
+    }
+    
+    :host #creditCard {
+      width:  375px;
+      height: 243px;
+      background-color: #48a2ee;
+      border-radius: 20px;
+      box-shadow: 0px 0px 10px 7px rgba(0, 0, 0, 0.2);
+      transform: translateY(110px) rotate(90deg);
+      transition: transform 1s;
+      cursor: pointer;
+    }
+
+    :host #creditCard:hover {
+      background-color: #83C6FF;
+    }
+
+    :host #creditCard.inserted {
+      transform: translateY(-310px) rotate(90deg);
+    }
+    :host #creditCard.ejected {
+      transform: translateY(-140px) rotate(90deg);
+    }
+    :host #creditCard.taken {
+      transform: translateY(1200px) rotate(90deg);
+    }
+    
+    :host #money-slot {
+      display: block;
+      height: 5px;
+      background-color: #ddd;
+      position: absolute;
+      bottom: 200px;
+      left: 20px;
+      right: 20px;
+    }
+    
+    :host #money-container {
+      position: absolute;
+      bottom: 0;
+      left:   0;
+      right:  0;
+      height: 200px;
+      overflow: hidden;
+    }
+    
+    :host #money {
+      transform: translateY(-200px);
+      transition: transform 1s;
+    }
+    :host #money.ejected {
+      transform: translateY(0)
+    }
+    :host #money.taken {
+      transform: translateY(350px)
+    }
+  </style>
+  
+  <script>
+    (function() {
+      Polymer({
+        is: 'atm-main',
+        properties: {
+          amount: {
+            value: 100,
+          },
+        },
+        _pin: '',
+        listenOnce: function(element, eventName, callback) {
+          // Utility function used to wait for click events.
+          // 
+          // This allows for a more functional style, rather than relying on state
+          // variables like 'waitingOnCardInsert', 'waitingOnCardRemoval' etc.
+          //
+          // TODO: Use promises!
+          
+          element.addEventListener(eventName, handleEvent);
+          function handleEvent(event) {
+            element.removeEventListener(eventName, handleEvent);
+            callback(event);
+          }
+        },
+        ready: function() {
+          var self = this;
+          // Wait for card to be inserted
+          self.listenOnce(self.$.creditCard, 'click', function() {
+            self.$.creditCard.classList.add('inserted');
+            setTimeout(function() {
+              // Move to PIN page
+              // TODO: Select page by name
+              pages.selectNext();
+            }, 1300);
+          });
+        },
+        onPinKey: function(event) {
+          this.setPin(this._pin + String(event.detail));
+          
+          // Automatically proceeed to verify the PIN when the last digit is entered.
+          //
+          // This follows a trend in mobile app interfaces that eliminate the 'submit' button.
+          // Doing this may not be realistic for an actual ATM however, as accidentally 
+          // entering the wrong PIN can result in a card being locked.
+          // Optimistic implementation used here for fun anyway,
+          if (this._pin.length >= 4) {
+            this.validatePin();
+          }
+        },
+        setPin: function(value) {
+          this._pin = value;
+          this.$.pinDisplay.textContent = this.makePinDisplayText(value);
+        },
+        clearPin: function() {
+          this.setPin('');
+        },
+        makePinDisplayText: function(currentPin) {
+          var displayText = '';
+          for (var i=0; i<currentPin.length; i++) {
+            displayText += '\u2022';
+          }
+          for (var i=0; i<(4-currentPin.length); i++) {
+            displayText += '-';
+          }
+          return displayText;
+        },
+        validatePin: function() {
+          var self = this;
+          
+          // Hide keypad, clear button etc.
+          self.$.pinKeypad.classList.add('faded');
+          self.$.pinClear.classList.add('hidden');
+          self.$.enterPin.classList.add('faded');
+          self.$.incorrectPin.classList.add('hidden');
+          
+          // Show "Verifying PIN.." with a spinner
+          self.$.pinSpinner.classList.remove('hidden');
+          self.$.verifyingPin.classList.remove('hidden');
+          
+          setTimeout(function() {
+            if (self._pin === '1234') {
+              // Correct PIN!
+              self.$.pages.selectNext();
+            } else {
+              // PIN was incorrect
+              self.setPin('');
+              self.$.incorrectPin.classList.remove('hidden');
+              self.$.pinSpinner.classList.add('hidden');
+              self.$.pinKeypad.classList.remove('faded');
+              self.$.pinClear.classList.remove('hidden');
+              self.$.enterPin.classList.remove('faded');
+              self.$.verifyingPin.classList.add('hidden');
+            }
+          }, 2000);
+        },
+        clearAmount: function() {
+          this.set('amount', null);
+        },
+        onPreset: function(event) {
+          this.set('amount', event.target.value);
+        },
+        showOtherAmount: function() {
+          this.$.amountPresets.classList.add('hidden');
+          this.$.amountKeypad.classList.remove('hidden');
+          this.$.presetsButton.classList.remove('hidden');
+          this.$.otherAmountButton.classList.add('hidden');
+          this.set('amount', null);
+        },
+        showPresets: function() {
+          this.$.amountPresets.classList.remove('hidden');
+          this.$.amountKeypad.classList.add('hidden');
+          this.$.presetsButton.classList.add('hidden');
+          this.$.otherAmountButton.classList.remove('hidden');
+          this.set('amount', 100);
+        },
+        onAmountKey: function(event) {
+          if (!this.amount) {
+            this.set('amount', String(event.detail));
+          } else {
+            this.set('amount', this.amount + String(event.detail));
+          }
+        },
+        getCashForAmount: function(value) {
+          // Returns an array of integer denominations, e.g. [50, 50, 20, 10]
+          
+          value = parseInt(value);
+          if (value < 10) {
+            return null;
+          }
+          
+          var cash = [];
+          
+          while (value >= 50) {
+            cash.push(50);
+            value -= 50;
+          }
+          while (value >= 20) {
+            cash.push(20);
+            value -= 20;
+          }
+          while (value >= 10) {
+            cash.push(10);
+            value -= 10;
+          }
+          
+          // TODO: A clever algorithm might evenly allocate denominations based
+          // on stock levels in the machine.
+          
+          if (value > 0) {
+            return null;
+          }
+          
+          return cash;
+        },
+        onDispense: function() {
+          var self = this;
+          cash = self.getCashForAmount(self.amount);
+          if (cash === null) {
+            // Invalid amount
+            
+            self.$.invalidAmount.classList.remove('hidden');
+            self.set('amount', null);
+          } else {
+            // Valid amount
+            
+            self.$.invalidAmount.classList.add('hidden');
+            
+            // Eject card
+            creditCard.classList.remove('inserted');
+            creditCard.classList.add('ejected');
+            
+            // Move to dispensing page
+            pages.selectNext();
+            
+            // Wait for card to be removed
+            self.listenOnce(self.$.creditCard, 'click', function() {
+              
+              // Take card away
+              self.$.creditCard.classList.remove('ejected');
+              self.$.creditCard.classList.add('taken');
+              self.$.takeCard.classList.add('hidden');
+              
+              // Show 'dispensing..' spinner
+              self.$.dispensingSpinner.classList.remove('hidden');
+              
+              // Wait for dispensing..
+              setTimeout(function() {
+              
+                self.dispenseCash(cash);
+                self.$.dispensingSpinner.classList.add('hidden');
+                
+                self.$.takeCash.classList.remove('hidden');
+                
+                // Wait for the cash to be taken
+                self.listenOnce(self.$.money, 'click', function() {
+                  
+                  // Take cash
+                  self.$.money.classList.remove('ejected');
+                  self.$.money.classList.add('taken');
+                  
+                  // Move to final page
+                  pages.selectNext();
+                });
+              }, 2000);
+            });
+          }
+        },
+        dispenseCash: function(cash) {
+          // Accepts an array of integer denominations, e.g. [50, 50, 20, 10]
+          
+          var self = this;
+          cash.forEach(function(denomination) {
+            var cashElement = document.createElement('img');
+            if (denomination === 50) {
+              cashElement.setAttribute('src', 'images/50-euro-note.jpg');
+            } else if (denomination === 20) {
+              cashElement.setAttribute('src', 'images/20-euro-note.jpg');
+            } else if (denomination === 10) {
+              cashElement.setAttribute('src', 'images/10-euro-note.jpg');
+            }
+            cashElement.classList.add('euro-note');
+            Polymer.dom(self.$.money).appendChild(cashElement); // Polymer.dom() wrapping required for correct lazy-loading of styles.
+          });
+          
+          self.$.money.classList.add('ejected');
+        },
+      });
+    })();
+  </script>
+</dom-module>

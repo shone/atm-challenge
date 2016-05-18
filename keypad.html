@@ -1,0 +1,112 @@
+<!--
+
+  atm-keypad
+  
+  Keypad component, showing buttons 0-9 arranged in a typical keyboard numpad layout.
+  
+  Usage:
+  
+    <atm-keypad on-key="myKeyHandler"></atm-keypad>
+    
+    ...
+    
+    myKeyHandler: function(event) {
+      console.log(String(event.detail) + ' was pressed.');
+    }
+
+  A 'key' event is fired for each keypress, with event.detail set to an 0-9 integer for the key.
+  
+  TODO: Allow for physical keyboard input when the component has focus.
+  
+-->
+
+<link rel="import" href="bower_components/polymer/polymer.html">
+
+<dom-module id="atm-keypad">
+  <template>
+    <div class="key-row">
+      <button id="key7">7</button>
+      <button id="key8">8</button>
+      <button id="key9">9</button>
+    </div>
+    <div class="key-row">
+      <button id="key4">4</button>
+      <button id="key5">5</button>
+      <button id="key6">6</button>
+    </div>
+    <div class="key-row">
+      <button id="key1">1</button>
+      <button id="key2">2</button>
+      <button id="key3">3</button>
+    </div>
+    <div class="key-row">
+      <span class="spacer"></span>
+      <button id="key0">0</button>
+      <span class="spacer"></span>
+    </div>
+  </template>
+  
+  <style>
+    :host {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+  
+    :host .key-row {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      flex-grow: 1;
+    }
+    
+    :host button {
+      background-color: #66cdcc;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 1.5em;
+      font-weight: bold;
+      flex-grow: 1;
+      margin: 1px;
+      padding: 0;
+    }
+    :host button:hover {
+      background-color: #309798;
+    }
+    /* :active styles make buttons more clicky! strive for clickyness! */
+    :host button:active {
+      background-color: #FFA700;
+    }
+    :host button:hover, 
+    :host button:focus {
+      outline: none;
+    }
+    
+    /* A spacer for the left and right of the '0' key. */
+    /* TODO: This is not accurate, and is a bit hacky. This can be done better. */
+    :host .spacer {
+      flex-grow: 1;
+      margin: 1px;
+    }
+  </style>
+  
+  <script>
+    (function() {
+      Polymer({
+        is: 'atm-keypad',
+        ready: function() {
+          var self = this;
+          var buttons = self.getElementsByTagName('button');
+          for (var i=0; i<buttons.length; i++) {
+            var button = buttons[i];
+            button.addEventListener('click', function(event) {
+              var key = parseInt(event.target.textContent);
+              self.fire('key', key);
+            });
+          }
+        },
+      });
+    })();
+  </script>
+</dom-module>
