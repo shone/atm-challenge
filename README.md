@@ -8,8 +8,8 @@ A mock Automated Teller Machine in HTML5, created over two days as a coding chal
 git clone <this repository> atm
 cd ./atm
 npm install
-bower install
-node server.js --port 8080
+npm run build
+npm start
 ```
 
 Open ```localhost:8080``` in a web browser, and click the credit card to begin. Use ```1234``` as the PIN.
