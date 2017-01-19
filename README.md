@@ -2,13 +2,14 @@
 
 A mock Automated Teller Machine in HTML5, created over two days as a coding challenge.
 
-## To run
+View live [here](https://joshua-shone.github.io/atm-challenge). Use ```1234``` as the PIN.
+
+## Running locally
 
 ```sh
-git clone <this repository> atm
-cd ./atm
+git clone <this repository>
+cd ./atm-challenge
 npm install
-npm run build
 npm start
 ```
 
