@@ -4,12 +4,11 @@
   "description": "Simulated Automated Teller Machine",
   "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "http-server"
   },
   "author": "Joshua Shone",
   "license": "ISC",
-  "dependencies": {
-    "express": "^4.13.4",
-    "yargs": "^4.7.1"
+  "devDependencies": {
+    "http-server": "^0.9.0"
   }
 }
